@@ -17,6 +17,7 @@ apk add expect libc6-compat && \
 \
 rm -rf /var/cache/apk/* && \
 \
+
 # RunIt stuff
 adduser -h /home/user-service -s /bin/sh -D user-service -u 2000 && \
 chown user-service:user-service /home/user-service && \

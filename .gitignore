@@ -1,0 +1,4 @@
+tmp
+
+Dockerfile.*
+!Dockerfile.cross

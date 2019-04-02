@@ -10,6 +10,7 @@ set -o nounset
 : "${DEBUG:=false}"
 : "${ARCH_ARR:=amd64 arm32v6 arm64v8}"
 : "${DOCKER_HUB_REPO:=jorkzijlstra/no-ip}"
+: "${QEMU_GIT_REPO:=multiarch/qemu-user-static}"
 : "${LOCAL:=}"
 : "${HUB:=}"
 
@@ -32,6 +33,33 @@ function usage() {
     echo -e "    --debug          debug mode."
     echo -e "    -?               help."
     exit 0
+}
+
+function _pre_reqs() {
+  _info "Creating temporary directory..."
+  mkdir -p ./tmp/{qemu,app}
+}
+
+function _update_qemu() {
+  qemu_release=$(curl -Ssl "https://api.github.com/repos/${QEMU_GIT_REPO}/releases/latest" | jq -r .tag_name)
+  _info "Downloading latest Qemu release: ${qemu_release}."
+  pushd ./tmp/qemu
+  for docker_arch in ${ARCH_ARR}; do
+      case ${docker_arch} in
+      amd64       ) qemu_arch="x86_64" ;;
+      arm32v6     ) qemu_arch="arm" ;;
+      arm64v8     ) qemu_arch="aarch64" ;;
+      *)
+        _error "Unknown target architechture."
+        exit 1
+    esac
+    if [[ ! -f x86_64_qemu-${qemu_arch}-static ]]; then
+      wget -N https://github.com/"${QEMU_GIT_REPO}"/releases/download/"${qemu_release}"/x86_64_qemu-"${qemu_arch}"-static.tar.gz
+      tar -xf x86_64_qemu-"${qemu_arch}"-static.tar.gz
+      rm -rf x86_64_qemu-"${qemu_arch}"-static.tar.gz
+    fi
+  done
+  popd
 }
 
 function _generate_docker_files() {
@@ -102,6 +130,9 @@ done
 if [[ ! -z "${LOCAL}" ]]; then
 	_info "Generating local Docker image for ${ARCH_ARR}"
 	[[ -z "${ARCH_ARR}" ]] && _error "Option --arch not specified!" && exit 1
+
+	_pre_reqs
+	_update_qemu
 	_generate_docker_files
 	_build_docker_images
 	# _cleanup
