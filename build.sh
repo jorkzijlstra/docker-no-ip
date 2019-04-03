@@ -73,7 +73,7 @@ function _generate_docker_files() {
 
 	cp Dockerfile.cross Dockerfile.${docker_arch}
 
-	# sed -i "s|__QEMU_ARCH__|${qemu_arch}|g" Dockerfile."${docker_arch}"
+	sed -i "s|__QEMU_ARCH__|${qemu_arch}|g" Dockerfile."${docker_arch}"
 
     if [[ ${docker_arch} == "amd64" ]]; then
       sed -i "s/__BASEIMAGE_ARCH__\///g" Dockerfile."${docker_arch}"
@@ -135,7 +135,7 @@ if [[ ! -z "${LOCAL}" ]]; then
 	_update_qemu
 	_generate_docker_files
 	_build_docker_images
-	# _cleanup
+	_cleanup
 fi
 
 if [[ ! -z "${HUB}" ]]; then
