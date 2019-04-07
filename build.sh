@@ -11,9 +11,9 @@ set -o nounset
 : "${ARCH_ARR:=amd64 arm32v6 arm64v8}"
 : "${DOCKER_HUB_REPO:=jorkzijlstra/no-ip}"
 : "${QEMU_GIT_REPO:=multiarch/qemu-user-static}"
-: "${LOCAL:=}"
 : "${HUB:=}"
-
+: "${CLEAN:=}" # Weather or not to clean local docker registry
+: "${PUSH:=}" #Weather or not push the docker images to the HUB
 
 #---------------------------------------------------------------------------------------------------------------------------
 # FUNCTIONS
@@ -24,12 +24,13 @@ function _error () { printf "\\r\\033[2K[ \\033[0;31mFAIL\\033[0m ] %s\\n" "$@";
 function _debug () { printf "\\r[ \\033[00;37mDBUG\\033[0m ] %s\\n" "$@"; }
 
 function usage() {
-    echo -e "\nusage: $0 [--local --arch <arch> | --hub [--arch <arch>]]"
+    echo -e "\nusage: $0 [--arch <arch> | --hub [--arch <arch>]]"
     echo -e ""
     echo -e "  General parameters:"
-    echo -e "    --local          generates a local test image for amd64, arm32v6 or arm64v8."
-    echo -e "    --arch           required for local test images, optional for hub images."
-    echo -e "    --hub            generates amd64, arm32v6 and arm64v8 Docker images and pushes them to the Docker Hub"
+    echo -e "    --arch           only create an image or a spcific arch (amd64, arm32v6 and arm64v8)."
+    echo -e "    --hub            Docker Hub where to push the images to."
+    echo -e "    --push           enable push to docker docker hub specified."
+    echo -e "    --clean          enable local docker registry clean as final step."
     echo -e "    --debug          debug mode."
     echo -e "    -?               help."
     exit 0
@@ -53,10 +54,10 @@ function _update_qemu() {
         _error "Unknown target architechture."
         exit 1
     esac
-    if [[ ! -f x86_64_qemu-${qemu_arch}-static ]]; then
-      wget -N https://github.com/"${QEMU_GIT_REPO}"/releases/download/"${qemu_release}"/x86_64_qemu-"${qemu_arch}"-static.tar.gz
-      tar -xf x86_64_qemu-"${qemu_arch}"-static.tar.gz
-      rm -rf x86_64_qemu-"${qemu_arch}"-static.tar.gz
+    if [[ ! -f qemu-${qemu_arch}-static ]]; then
+      wget -N https://github.com/"${QEMU_GIT_REPO}"/releases/download/"${qemu_release}"/qemu-"${qemu_arch}"-static.tar.gz
+      tar -xf qemu-"${qemu_arch}"-static.tar.gz
+      rm -rf qemu-"${qemu_arch}"-static.tar.gz
     fi
   done
   popd
@@ -88,21 +89,37 @@ function _build_docker_images() {
 	for docker_arch in ${ARCH_ARR}; do
 		_info "Building Docker images for: ${docker_arch}"
 
-		docker build -f Dockerfile."${docker_arch}" -t "${DOCKER_HUB_REPO}":"${docker_arch}"-latest .
-		
-		# docker tag "${DOCKER_HUB_REPO}":"${docker_arch}"-latest "${DOCKER_HUB_REPO}":test-"${docker_arch}"-latest
-		# if [[ "${docker_arch}" == "amd64" ]]; then
-			# docker tag "${DOCKER_HUB_REPO}":"${docker_arch}"-latest "${DOCKER_HUB_REPO}":latest
-			# docker tag "${DOCKER_HUB_REPO}":"${docker_arch}"-latest "${DOCKER_HUB_REPO}":test-latest
-		# fi
+    if [[ "${docker_arch}" == "amd64" ]]; then
+      docker build -f Dockerfile."${docker_arch}" -t "${DOCKER_HUB_REPO}":latest .
+    else
+      docker build -f Dockerfile."${docker_arch}" -t "${DOCKER_HUB_REPO}":"${docker_arch}"-latest .
+    fi
 	done
+}
+
+function _push_docker_images() {
+  _info "Pushing Docker images to the Docker HUB..."
+  for docker_arch in ${ARCH_ARR}; do
+    _info "Pushing Docker images for: ${docker_arch}."
+    if [[ "${docker_arch}" == "amd64" ]]; then
+      docker push "${DOCKER_HUB_REPO}":latest
+    else
+      docker push "${DOCKER_HUB_REPO}":"${docker_arch}"-latest
+    fi
+  done
 }
 
 function _cleanup () {
   _info "Cleaning up temporary files..."
   rm -rf ./tmp
-  docker images -q | xargs docker rmi -f
+  #docker images -q | xargs docker rmi -f
   for docker_arch in ${ARCH_ARR}; do
+    if [[ "${docker_arch}" == "amd64" ]]; then
+      docker rmi "${DOCKER_HUB_REPO}":latest
+    else
+      docker rmi "${DOCKER_HUB_REPO}":"${docker_arch}"-latest
+    fi
+
     [[ -f Dockerfile."${docker_arch}" ]] && rm -rf Dockerfile."${docker_arch}"
     continue
   done
@@ -115,9 +132,10 @@ function _cleanup () {
 
 while [[ $# -gt 0 ]]; do
     case $1 in
-      --local )        LOCAL=local&&ARCH_ARR='';;
       --arch )         shift&&ARCH_ARR=$1;;
       --hub )          HUB=hub;;
+      --clean )        CLEAN=true;;
+      --push )         PUSH=true;;
       --debug )        DEBUG=true;;
       -? | --help )    usage && exit ;;
       * )              usage && exit 1 ;;
@@ -127,18 +145,16 @@ done
 
 [[ "${DEBUG}" == 'true' ]] && set -o xtrace
 
-if [[ ! -z "${LOCAL}" ]]; then
-	_info "Generating local Docker image for ${ARCH_ARR}"
-	[[ -z "${ARCH_ARR}" ]] && _error "Option --arch not specified!" && exit 1
+_info "Generating Docker Hub images for ${ARCH_ARR}"
+_pre_reqs
+_update_qemu
+_generate_docker_files
+_build_docker_images
 
-	_pre_reqs
-	_update_qemu
-	_generate_docker_files
-	_build_docker_images
-	_cleanup
-fi
-
-if [[ ! -z "${HUB}" ]]; then
-	_info "Generating Docker Hub images for ${ARCH_ARR}"
+if [[ ! -z "${PUSH}" ]]; then
+  _push_docker_images
 fi
 	
+if [[ ! -z "${CLEAN}" ]]; then
+  _cleanup
+fi
