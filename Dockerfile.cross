@@ -20,7 +20,13 @@ RUN ["/usr/bin/qemu-__QEMU_ARCH__-static", "/bin/sh", "-c", \
       rm -rf /var/cache/apk/*"]
 
 RUN ["/usr/bin/qemu-__QEMU_ARCH__-static", "/bin/sh", "-c", \
+	"ls -al /usr/bin/qemu-__QEMU_ARCH__*"]
+
+RUN ["/usr/bin/qemu-__QEMU_ARCH__-static", "/bin/sh", "-c", \
 	"adduser -h /home/user-service -s /bin/sh -D user-service -u 2000"]
+
+RUN ["/usr/bin/qemu-__QEMU_ARCH__-static", "/bin/sh", "-c", \
+	"ls -al /usr/bin/qemu-__QEMU_ARCH__*"]
 
 RUN ["/usr/bin/qemu-__QEMU_ARCH__-static", "/bin/sh", "-c", \
 	"chown user-service:user-service /home/user-service"]

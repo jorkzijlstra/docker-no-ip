@@ -112,14 +112,13 @@ function _push_docker_images() {
 function _cleanup () {
   _info "Cleaning up temporary files..."
   rm -rf ./tmp
-  #docker images -q | xargs docker rmi -f
+  
   for docker_arch in ${ARCH_ARR}; do
     if [[ "${docker_arch}" == "amd64" ]]; then
       docker rmi "${DOCKER_HUB_REPO}":latest
     else
       docker rmi "${DOCKER_HUB_REPO}":"${docker_arch}"-latest
     fi
-
     [[ -f Dockerfile."${docker_arch}" ]] && rm -rf Dockerfile."${docker_arch}"
     continue
   done
