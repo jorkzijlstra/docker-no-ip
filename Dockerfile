@@ -10,7 +10,7 @@ echo "http://dl-cdn.alpinelinux.org/alpine/v3.7/community" >> /etc/apk/repositor
 apk --update upgrade && \
 \
 # Basics, including runit
-apk add bash curl htop runit && \
+apk add bash curl htop runit build-base && \
 \
 # Needed by our code
 apk add expect libc6-compat && \
@@ -33,8 +33,9 @@ ADD https://www.noip.com/client/linux/noip-duc-linux.tar.gz /files/
 
 RUN set -x \
   && chmod a+rwX /files \
-  && tar -C /files -x -f /files/noip-duc-linux.tar.gz noip-2.1.9-1/binaries/noip2-x86_64 \
-  && mv /files/noip-2.1.9-1/binaries/noip2-x86_64 /files \
+  && tar -C /files -x -f /files/noip-duc-linux.tar.gz noip-2.1.9-1 \
+  && make -C /files/noip-2.1.9-1 \
+  && mv /files/noip-2.1.9-1/noip2 /files \
   && rm -rf /files/noip-2.1.9-1 /files/noip-duc-linux.tar.gz
 
 COPY ["noip.conf", "create_config.exp", "/files/"]
