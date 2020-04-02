@@ -160,9 +160,9 @@ set_default_values() {
 
 . "$ENV_VARS"
 
-if [ $(all_required_settings_exist) = true ]
+if [ $(all_required_settings_exist) = false ]
 then
-  echo "All required settings passed as environment variables. Skipping config file creation."
+  echo "Not all required settings passed as environment variables."
   exit 0
 fi
 
